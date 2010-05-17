@@ -1,67 +1,42 @@
 <?php
-
-class repository_demo extends repository {
+require_once("cmis_repository_wrapper.php");
+class repository_cmis extends repository {
+  	private $cmis=null;
     public function __construct($repositoryid, $context = SITEID, $options = array()) {
+        global $SESSION, $CFG;
         parent::__construct($repositoryid, $context, $options);
-    }
-    public function get_listing($path = '', $page = '') {
-        $list = array();
-        $list['list'] = array();
-        // the management interface url
-        $list['manage'] = false;
-        // dynamically loading
-        $list['dynload'] = true;
-        // the current path of this list.
-        $list['path'] = array(
-            array('name'=>'root', 'path'=>''),
-            array('name'=>'sub_dir', 'path'=>'/sub_dir')
-            );
-        // set to true, the login link will be removed
-        $list['nologin'] = false;
-        // set to true, the search button will be removed
-        $list['nosearch'] = false;
-        // a file in listing
-        $list['list'][] = array('title'=>'file.txt',
-            'size'=>'1kb',
-            'date'=>'2008.1.12',
-            'thumbnail'=>'http://localhost/xx.png',
-            'thumbnail_wodth'=>32,
-            // plugin-dependent unique path to the file (id, url, path, etc.)
-            'source'=>'',
-            // the accessible url of the file
-            'url'=>''
-        );
-        // a folder in listing
-        $list['list'][] = array('title'=>'foler',
-            'size'=>'0',
-            'date'=>'2008.1.12',
-            'childre'=>array(),
-            'thumbnail'=>'http://localhost/xx.png',
-        );
-        return $list;
-    }
-    // login 
-    public function check_login() {
-        global $SESSION;
-        if (!empty($SESSION->logged)) {
-            return true;
+        $this->sessname = 'cmis_session_'.$this->id;
+        $options=array();
+        $options["username"]=optional_param('cmisusername', '', PARAM_RAW);
+        $options["password"]=optional_param('cmispassword', '', PARAM_RAW);
+        if (empty($options["username"])) {
+        	$options=unserialize($SESSION->{$this->sessname});
         } else {
-            return false;
+        	$SESSION->{$this->sessname}=serialize($options);
+        }
+        $x=serialize(array("SESSNAME" => $this->sessname,"SESSION" => $SESSION->{$this->sessname}));
+        $this->cmis = new CMISService($this->options['cmis_url'],$options["username"],$options["password"]);
+        if (!$this->cmis->authenticated) {
+            $this->logout();
+        }
+        
+        if ($this->cmis->authenticated) {
+        	add_to_log(SITEID,"cmis","CONST","","AUTHENTICATED as " . $options['username']);
         }
     }
     // if check_login returns false,
     // this function will be called to print a login form.
     public function print_login() {
-        $user_field->label = get_string('username', 'repository_demo').': ';
-        $user_field->id    = 'demo_username';
+        $user_field->label = get_string('username', 'repository_cmis').': ';
+        $user_field->id    = 'cmis_username';
         $user_field->type  = 'text';
-        $user_field->name  = 'demousername';
+        $user_field->name  = 'cmisusername';
         $user_field->value = $ret->username;
         
-        $passwd_field->label = get_string('password', 'repository_demo').': ';
-        $passwd_field->id    = 'demo_password';
+        $passwd_field->label = get_string('password', 'repository_cmis').': ';
+        $passwd_field->id    = 'cmis_password';
         $passwd_field->type  = 'password';
-        $passwd_field->name  = 'demopassword';
+        $passwd_field->name  = 'cmispassword';
 
         $form = array();
         $form['login'] = array($user_field, $passwd_field);
@@ -73,55 +48,85 @@ class repository_demo extends repository {
     public function global_search() {
         return false;
     }
-    public function search($text) {
-        $search_result = array();
-        // search result listing's format is the same as 
-        // file listing
-        $search_result['list'] = array();
-        return $search_result;
-    }
-    // move file to local moodle
-    // the default implementation will download the file by $url using curl,
-    // that file will be saved as $file_name.
-    /**
-    public function get_file($url, $file_name = '') {
-    }
-    */
 
-    // when logout button on file picker is clicked, this function will be 
-    // called.
-    public function logout() {
-        global $SESSION;
-        unset($SESSION->logged);
-        return true;
-    }
-    // can be overloaded to use a customized name
-    // for repository instance
-    public function get_name() {
-        return 'demo plugin';
-    }
     // management api
 
-    // this function must be static
+    public function logout() {
+        global $SESSION;
+        unset($SESSION->{$this->sessname});
+        return $this->print_login();
+    }
+
+    public function check_login() {
+        global $SESSION;
+        return !empty($SESSION->{$this->sessname});
+    }
+
+    public function get_listing($path = '/', $page = '') {
+        global $CFG, $SESSION, $OUTPUT;
+        $ret = array();
+        $ret['dynload'] = true;
+        $ret['list'] = array();
+        $url = $this->options['cmis_url'];
+
+        $ret['manage'] = false;
+        // set to true, the login link will be removed
+        $ret['nologin'] = false;
+        // set to true, the search button will be removed
+        $ret['nosearch'] = false;
+        // a file in listing
+
+        $ret['path'] = array(array('name'=>'Root', 'path'=>'/'));
+		add_to_log(SITEID,"cmis","LIST-0","",serialize($ret));
+
+        if (!$this->cmis->authenticated) {
+        	$this->logout();
+        }
+        $folder=$this->cmis->getObjectByPath($path);
+        $children=$this->cmis->getChildren($folder->id);
+		foreach ($children->objectList as $child) {
+            if ($child->properties['cmis:baseTypeId'] == "cmis:document") {
+                $ret['list'][] = array('title'=>$child->properties["cmis:name"],
+                    'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32)),
+                    'source'=>$child->links['enclosure']);
+            } elseif ($child->properties['cmis:baseTypeId'] == "cmis:folder") {
+                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
+                    'path'=>str_replace(" ","%20",str_replace("%","%25",$child->properties['cmis:path'])),
+                    'thumbnail'=>$OUTPUT->pix_url('f/folder-32') . "",
+                    'children'=>array());
+            } else {
+            }
+		}		
+		return $ret;
+    }
+
+    public function search($search_text) {
+        global $CFG;
+        $ret = array();
+        $ret['list'] = array();
+        $query="SELECT cmis:name,score() as rel from cmis:document WHERE CONTAINS('" . $search_text . "')";
+        $objs=$this->cmis->query($query);
+        add_to_log(SITEID,"cmis",'SEARCH','',$query);
+		foreach ($objs->objectList as $obj) {
+                $ret['list'][] = array('title'=>$obj->properties["cmis:name"],
+                    'source'=>$obj->links['enclosure']);
+        }
+        
+        return $ret;
+    }
+
     public static function get_instance_option_names() {
-        return array('account');
+        return array('cmis_url');
     }
 
     public function instance_config_form(&$mform) {
-        $mform->addElement('text', 'account', get_string('account', 'repository_demo'), array('value'=>'','size' => '40'));
+        $mform->addElement('text', 'cmis_url', get_string('cmis_url', 'repository_cmis'), array('size' => '40'));
+        $mform->addElement('static', 'cmis_url_intro', '', get_string('cmisurltext', 'repository_cmis'));
+        $mform->addRule('cmis_url', get_string('required'), 'required', null, 'client');
+        return false;
+    }
+    public static function plugin_init() {
+            return true;
     }
 
-    // this function must be static
-    public static function get_type_option_names() {
-        return array('api_key');
-    }
-    public function type_config_form(&$mform) {
-        $mform->addElement('text', 'api_key', get_string('api_key', 'repository_demo'), array('value'=>'','size' => '40'));
-    }
-    // will be called when installing a new plugin in admin panel
-    public static function plugin_init() {
-        $result = true;
-        // do nothing
-        return $result;
-    }
 }
