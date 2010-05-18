@@ -61,6 +61,25 @@ class repository_cmis extends repository {
         global $SESSION;
         return !empty($SESSION->{$this->sessname});
     }
+ 
+    public function get_file($objId, $file = '') {
+        global $CFG;
+	add_to_log(SITEID,"cmis","GET-FILE-0","",$objId);
+        //$node = $this->cmis->getObjectById($objId);
+	//add_to_log(SITEID,"cmis","GET-FILE-00","","START-NODE-LOOK-AT");
+	//add_to_log(SITEID,"cmis","GET-FILE-0a","",serialize($node));
+	//add_to_log(SITEID,"cmis","GET-FILE-0b","",$node->properties['cmis:baseTypeId']);
+        //if ($node->properties['cmis:baseTypeId'] == "cmis:document") {
+	// We really should check to make sure that this is a document -- but something may be broken on getObjectById -- will let this pass for beta
+                $path = $this->prepare_file($file);
+                $fp = fopen($path, 'w');
+                fwrite($fp,$this->cmis->getContentStream($objId));
+		add_to_log(SITEID,"cmis","GET-FILE-1","",$path);
+                return array("path" => $path,"objid" => $objId);
+        //}
+	//add_to_log(SITEID,"cmis","GET-FILE-N","","Returning Null");
+        //return null;
+    }
 
     public function get_listing($path = '/', $page = '') {
         global $CFG, $SESSION, $OUTPUT;
@@ -87,10 +106,11 @@ class repository_cmis extends repository {
 		foreach ($children->objectList as $child) {
             if ($child->properties['cmis:baseTypeId'] == "cmis:document") {
                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
+                    'path'=>str_replace(" ","%20",str_replace("%","%25",$folder->properties['cmis:path'])),
                     'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32)),
-                    'source'=>$child->links['enclosure']);
+                    'source'=>$child->id);
             } elseif ($child->properties['cmis:baseTypeId'] == "cmis:folder") {
-                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
+                 $ret['list'][] = array('title'=>str_replace(" ","%20",str_replace("%","%25",$child->properties["cmis:name"])),
                     'path'=>str_replace(" ","%20",str_replace("%","%25",$child->properties['cmis:path'])),
                     'thumbnail'=>$OUTPUT->pix_url('f/folder-32') . "",
                     'children'=>array());
