@@ -9,7 +9,7 @@ class repository_cmis extends repository {
         $options=array();
         $options["username"]=optional_param('cmisusername', '', PARAM_RAW);
         $options["password"]=optional_param('cmispassword', '', PARAM_RAW);
-        if (empty($options["username"])) {
+        if (empty($options["username"]) && isset($SESSION->{$this->sessname})) {
         	$options=unserialize($SESSION->{$this->sessname});
         } else {
         	$SESSION->{$this->sessname}=serialize($options);
@@ -31,7 +31,7 @@ class repository_cmis extends repository {
         $user_field->id    = 'cmis_username';
         $user_field->type  = 'text';
         $user_field->name  = 'cmisusername';
-        $user_field->value = $ret->username;
+        //$user_field->value = $ret->username;
         
         $passwd_field->label = get_string('password', 'repository_cmis').': ';
         $passwd_field->id    = 'cmis_password';
@@ -106,12 +106,12 @@ class repository_cmis extends repository {
 		foreach ($children->objectList as $child) {
             if ($child->properties['cmis:baseTypeId'] == "cmis:document") {
                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
-                    'path'=>str_replace(" ","%20",str_replace("%","%25",$folder->properties['cmis:path'])),
+                    'path'=>$folder->properties['cmis:path'],
                     'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32)),
                     'source'=>$child->id);
             } elseif ($child->properties['cmis:baseTypeId'] == "cmis:folder") {
-                 $ret['list'][] = array('title'=>str_replace(" ","%20",str_replace("%","%25",$child->properties["cmis:name"])),
-                    'path'=>str_replace(" ","%20",str_replace("%","%25",$child->properties['cmis:path'])),
+                 $ret['list'][] = array('title' => $child->properties["cmis:name"],
+                    'path'=>$child->properties['cmis:path'],
                     'thumbnail'=>$OUTPUT->pix_url('f/folder-32') . "",
                     'children'=>array());
             } else {
