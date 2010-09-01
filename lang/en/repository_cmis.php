@@ -33,3 +33,5 @@ $string['repositorydesc'] = 'A plug-in for a CMIS Compliant CMS';
 $string['repositoryname'] = 'CMIS Compliant repository';
 //$string['soapmustbeenabled'] = 'SOAP extension must be enabled for alfresco plugin';
 $string['username'] = 'User name';
+$string['pluginname_help'] = 'A plug-in for CMIS Compliant Repositories';
+$string['pluginname'] = 'CMIS repository';

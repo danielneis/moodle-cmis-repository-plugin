@@ -1,4 +1,5 @@
 <?php
+//require_once($CFG->libdir . '/cmis_repository_wrapper.php');
 require_once("cmis_repository_wrapper.php");
 class repository_cmis extends repository {
   	private $cmis=null;
@@ -95,8 +96,9 @@ class repository_cmis extends repository {
         $ret['nosearch'] = false;
         // a file in listing
 
-        $ret['path'] = array(array('name'=>'Root', 'path'=>'/'));
+        $ret['path'] = array(array('name'=>get_string('pluginname', 'cmis_repository'), 'path'=>'/'));
 		add_to_log(SITEID,"cmis","LIST-0","",serialize($ret));
+
 
         if (!$this->cmis->authenticated) {
         	$this->logout();
@@ -107,7 +109,7 @@ class repository_cmis extends repository {
             if ($child->properties['cmis:baseTypeId'] == "cmis:document") {
                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
                     'path'=>$folder->properties['cmis:path'],
-                    'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32)),
+                    'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32))->out(false),
                     'source'=>$child->id);
             } elseif ($child->properties['cmis:baseTypeId'] == "cmis:folder") {
                  $ret['list'][] = array('title' => $child->properties["cmis:name"],
@@ -143,7 +145,7 @@ class repository_cmis extends repository {
         $mform->addElement('text', 'cmis_url', get_string('cmis_url', 'repository_cmis'), array('size' => '40'));
         $mform->addElement('static', 'cmis_url_intro', '', get_string('cmisurltext', 'repository_cmis'));
         $mform->addRule('cmis_url', get_string('required'), 'required', null, 'client');
-        return false;
+        return true;
     }
     public static function plugin_init() {
             return true;
