@@ -96,7 +96,7 @@ class repository_cmis extends repository {
         $ret['nosearch'] = false;
         // a file in listing
 
-        $ret['path'] = array(array('name'=>get_string('pluginname', 'cmis_repository'), 'path'=>'/'));
+        $ret['path'] = array(array('name'=>get_string('pluginname', 'repository_cmis'), 'path'=>'/'));
 		add_to_log(SITEID,"cmis","LIST-0","",serialize($ret));
 
 
