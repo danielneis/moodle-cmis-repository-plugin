@@ -1,8 +1,32 @@
 <?php
-//require_once($CFG->libdir . '/cmis_repository_wrapper.php');
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * This plugin is used to access CMIS repositories
+ *
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+require_once($CFG->dirroot . '/repository/lib.php');
+
 require_once("cmis_repository_wrapper.php");
+
 class repository_cmis extends repository {
-  	private $cmis=null;
+
+    private $cmis=null;
+
     public function __construct($repositoryid, $context = SITEID, $options = array()) {
         global $SESSION, $CFG;
         parent::__construct($repositoryid, $context, $options);
@@ -11,9 +35,9 @@ class repository_cmis extends repository {
         $options["username"]=optional_param('cmisusername', '', PARAM_RAW);
         $options["password"]=optional_param('cmispassword', '', PARAM_RAW);
         if (empty($options["username"]) && isset($SESSION->{$this->sessname})) {
-        	$options=unserialize($SESSION->{$this->sessname});
+            $options=unserialize($SESSION->{$this->sessname});
         } else {
-        	$SESSION->{$this->sessname}=serialize($options);
+            $SESSION->{$this->sessname}=serialize($options);
         }
         $x=serialize(array("SESSNAME" => $this->sessname,"SESSION" => $SESSION->{$this->sessname}));
         $this->cmis = new CMISService($this->options['cmis_url'],$options["username"],$options["password"]);
@@ -22,7 +46,7 @@ class repository_cmis extends repository {
         }
         
         if ($this->cmis->authenticated) {
-        	add_to_log(SITEID,"cmis","CONST","","AUTHENTICATED as " . $options['username']);
+            add_to_log(SITEID,"cmis","CONST","","AUTHENTICATED as " . $options['username']);
         }
     }
     // if check_login returns false,
@@ -101,28 +125,28 @@ class repository_cmis extends repository {
 
 
         if (!$this->cmis->authenticated) {
-        	$this->logout();
+            $this->logout();
         }
         $folder=$this->cmis->getObjectByPath($path);
         $children=$this->cmis->getChildren($folder->id);
-		foreach ($children->objectList as $child) {
+        foreach ($children->objectList as $child) {
             if ($child->properties['cmis:baseTypeId'] == "cmis:document") {
                 $ret['list'][] = array('title'=>$child->properties["cmis:name"],
-                    'path'=>$folder->properties['cmis:path'],
-                    'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32))->out(false),
-                    'source'=>$child->id);
+                                       'path'=>$folder->properties['cmis:path'],
+                                       'thumbnail' =>$OUTPUT->pix_url(file_extension_icon($child->properties["cmis:name"], 32))->out(false),
+                                       'source'=>$child->id);
             } elseif ($child->properties['cmis:baseTypeId'] == "cmis:folder") {
-                 $ret['list'][] = array('title' => $child->properties["cmis:name"],
-                    'path'=>$child->properties['cmis:path'],
-                    'thumbnail'=>$OUTPUT->pix_url('f/folder-32') . "",
-                    'children'=>array());
+                $ret['list'][] = array('title' => $child->properties["cmis:name"],
+                                       'path'=>$child->properties['cmis:path'],
+                                       'thumbnail'=>$OUTPUT->pix_url('f/folder-32') . "",
+                                       'children'=>array());
             } else {
             }
-		}		
-		return $ret;
+        }
+        return $ret;
     }
 
-    public function search($search_text) {
+    public function search($search_text, $page = 0) {
         global $CFG;
         $ret = array();
         $ret['list'] = array();
@@ -141,14 +165,15 @@ class repository_cmis extends repository {
         return array('cmis_url');
     }
 
-    public function instance_config_form(&$mform) {
+    public static function instance_config_form($mform) {
         $mform->addElement('text', 'cmis_url', get_string('cmis_url', 'repository_cmis'), array('size' => '40'));
+        $mform->setType('cmis_url', PARAM_URL);
         $mform->addElement('static', 'cmis_url_intro', '', get_string('cmisurltext', 'repository_cmis'));
         $mform->addRule('cmis_url', get_string('required'), 'required', null, 'client');
         return true;
     }
-    public static function plugin_init() {
-            return true;
-    }
 
+    public static function plugin_init() {
+        return true;
+    }
 }
